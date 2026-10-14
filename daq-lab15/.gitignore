@@ -1,0 +1,18 @@
+#entorno virtual
+.venv/
+
+#python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+
+#datos acq
+data/
+*.bin
+
+#logs
+*.log
+
+#sistema
+.vscode/
