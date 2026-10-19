@@ -1,6 +1,10 @@
-import pyvisa
+import pyvisa #El generador utiliza el estándar USBTMC
 rm = pyvisa.ResourceManager("@py") #Gestor de recursos que busca y abre instrumentos
-print(rm.list_resources())
-gen = rm.open_resource(rm.list_resources()[0])
-gen.timeout = 5000
-print(gen.query("*IDN?"))
+
+gen = rm.open_resource("USB0::2391::22279::MY53801010::0::INSTR")
+gen.timeout = 2000
+
+try:
+    print(gen.query("*IDN?"))
+finally:
+    gen.close()
