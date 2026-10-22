@@ -1,6 +1,6 @@
 """!
 @file   aimtti_ql564tp.py
-@brief  
+@brief  Control functions of the AIM-TTI QL564TP power supply
 """
 import pyvisa # La fuente utiliza el estándar de puerto serie virtual CDC (TTY)
 
@@ -12,6 +12,8 @@ def open_source(resource):
     @return source
     """
     rm = pyvisa.ResourceManager("@py") 
+    #print(rm.list_resources())
+
 
     source = rm.open_resource(resource)
     source.baud_rate = 19200   # manual
