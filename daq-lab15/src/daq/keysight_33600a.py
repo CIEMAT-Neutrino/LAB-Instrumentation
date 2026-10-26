@@ -2,6 +2,7 @@
 @file   keysight_33600a.py
 @brief  Control functions of the Keysight 33600A signal generator
 """
+#CODIGO NO COMPROBADO!!!!!!!!!!!!!!!!
 import pyvisa #El generador utiliza el estándar USBTMC
 
 def open_sigenerator(resource):

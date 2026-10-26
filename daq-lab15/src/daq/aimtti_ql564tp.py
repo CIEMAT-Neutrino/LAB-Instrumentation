@@ -3,6 +3,7 @@
 @brief  Control functions of the AIM-TTI QL564TP power supply
 """
 import pyvisa # La fuente utiliza el estándar de puerto serie virtual CDC (TTY)
+import re
 
 def open_source(resource):
     """!
@@ -12,8 +13,6 @@ def open_source(resource):
     @return source
     """
     rm = pyvisa.ResourceManager("@py") 
-    #print(rm.list_resources())
-
 
     source = rm.open_resource(resource)
     source.baud_rate = 19200   # manual
@@ -32,6 +31,12 @@ def set_voltage(source, channel, volts):
     @return None
     """
     source.write(f"V{channel} {volts:.3f}")
+
+def _to_float(reply):
+    """!
+    @brief Extract the number from an instrument reply such as '15.000V' or 'V1 15.000'.
+    """
+    return float(re.findall(r"[-+]?\d*\.?\d+", reply)[-1])
     
 def read_voltage(source, channel):
     """!
@@ -41,7 +46,7 @@ def read_voltage(source, channel):
     @param channel  Channel number (1, 2...).
     @return voltage
     """
-    return source.query(f"V{channel}O?")
+    return _to_float(source.query(f"V{channel}O?"))
 
 def read_set_voltage(source, channel):
     """!
@@ -51,7 +56,7 @@ def read_set_voltage(source, channel):
     @param channel  Channel number (1, 2...).
     @return voltage
     """
-    return source.query(f"V{channel}?")
+    return _to_float(source.query(f"V{channel}?"))
 
 def set_current_limit(source, channel, amps):
     """!
@@ -72,7 +77,7 @@ def read_current(source, channel):
     @param channel  Channel number (1, 2...).
     @return current
     """
-    return source.query(f"I{channel}O?")
+    return _to_float(source.query(f"I{channel}O?"))
 
 def read_current_limit(source, channel):
     """!
@@ -82,7 +87,18 @@ def read_current_limit(source, channel):
     @param channel  Channel number (1, 2...).
     @return current_limit
     """
-    return source.query(f"I{channel}?")
+    return _to_float(source.query(f"I{channel}?"))
+
+def check_errors(source):
+    """!
+    @brief Raise an exception if the last commands caused an execution error.
+
+    @param source VISA resource already opened with open_source.
+    @return None
+    """
+    code = int(source.query("EER?"))
+    if code != 0:
+        raise RuntimeError(f"QL564TP execution error (EER={code})")
 
 def output(source, channel, on):
     """!
@@ -94,3 +110,18 @@ def output(source, channel, on):
     @return None
     """
     source.write(f"OP{channel} {1 if on else 0}")
+
+def shutdown(source, channel):
+    """!
+    @brief Leave a channel in a safe state: 0 V and output off.
+    """
+    try:
+        set_voltage(source, channel, 0)
+    finally:
+        output(source, channel, 0)
+
+def close_source(source):
+    """!
+    @brief Close the VISA resource.
+    """
+    source.close()
