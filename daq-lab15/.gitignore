@@ -16,3 +16,6 @@ data/
 
 #sistema
 .vscode/
+
+#documentacion
+docs/doxygen/

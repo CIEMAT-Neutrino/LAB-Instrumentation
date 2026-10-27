@@ -1,13 +1,19 @@
-"""
-Visualizacion rapida de los .bin de CoMPASS guardados en data/.
+"""!
+@file   quickdisplay.py
+@brief  Genera una vista rapida de la waveform media del RAW de CoMPASS.
 
-Para cada archivo calcula la waveform media de todos los eventos y genera
-una pagina HTML interactiva (plotly) que se abre en el navegador.
+Visualizacion rapida de los datos RAW de CoMPASS guardados en
+Data/CoMPASS256_ExternalTrigger/DAQ/<run>/RAW.
 
-Uso:
-    python src/display/quickdisplay.py                 # todos los .bin de data/
-    python src/display/quickdisplay.py run_1.BIN ...   # archivos concretos
-    python src/display/quickdisplay.py --max-events 10000 --no-open
+Para cada archivo calcula la waveform media de un numero limitado de eventos
+(100 por defecto) y genera una pagina HTML interactiva con Plotly que se abre
+en el navegador.
+
+Ejemplos de uso:
+- python src/data_visualization/quickdisplay.py
+- python src/data_visualization/quickdisplay.py 11Junio_run_2 11Junio_run_3
+- python src/data_visualization/quickdisplay.py --max-events 100 --no-open
+- python src/data_visualization/quickdisplay.py data/CoMPASS256_ExternalTrigger/DAQ/11Junio_run_2/RAW/DataR_CH0@DT2730_66353_11Junio_run_2.BIN
 """
 
 import argparse
@@ -21,7 +27,9 @@ from plotly.subplots import make_subplots
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = ROOT / "data"
+DAQ_DIR = DATA_DIR / "CoMPASS256_ExternalTrigger" / "DAQ"
 OUT_HTML = DATA_DIR / "quickdisplay.html"
+DEFAULT_MAX_EVENTS = 100
 
 # DT2730: 500 MS/s (2 ns) con WAVE_DOWNSAMPLING_X2 en CoMPASS -> 4 ns por muestra
 SAMPLE_PERIOD_NS = 4.0
@@ -34,7 +42,12 @@ HAS_WAVEFORM = 1 << 3
 
 
 def read_header(path):
-    """Lee el header y devuelve (n_samples, dtype del evento)."""
+    """!
+    @brief Lee el header del archivo .BIN y devuelve la informacion del evento.
+
+    @param path Ruta al archivo RAW de CoMPASS.
+    @return Tupla (n_samples, dtype) con el numero de muestras y el dtype del evento.
+    """
     with open(path, "rb") as f:
         header = int.from_bytes(f.read(2), "little")
         if header & 0xFFF0 != 0xCAE0:
@@ -62,11 +75,16 @@ def read_header(path):
 
 
 def event_offsets(mm, dtype):
-    """Posiciones de inicio de cada evento valido.
+    """!
+    @brief Busca las posiciones de inicio de cada evento valido dentro del buffer.
 
-    Algunos archivos tienen eventos truncados (bloques perdidos al escribir),
-    asi que no se puede asumir tamano fijo: se recorre evento a evento y, si
+    Algunos archivos tienen eventos truncados por bloques perdidos al escribir,
+    asi que no se puede asumir un tamano fijo. Se recorre evento a evento y, si
     uno no cuadra, se busca el siguiente por la firma wave_code + n_samples.
+
+    @param mm Buffer mapeado en memoria del archivo.
+    @param dtype Dtype del evento leido en el header.
+    @return Tupla (offsets, skipped) con los offsets validos y los eventos corruptos descartados.
     """
     size = dtype.itemsize
     sig_pos = dtype.fields["wave_code"][1]
@@ -94,7 +112,14 @@ def event_offsets(mm, dtype):
 
 
 def mean_waveform(path, max_events=None):
-    """Devuelve (waveform media, desviacion estandar, n eventos, n eventos descartados)."""
+    """!
+    @brief Calcula la waveform media para un archivo y un numero maximo de eventos.
+
+    @param path Ruta al archivo .BIN a analizar.
+    @param max_events Numero maximo de eventos a considerar. Si es None, usa todos.
+    @return Tupla (mean, std, n_events, skipped) con la media, la desviacion estandar,
+            el numero de eventos usados y los eventos corruptos descartados.
+    """
     n_samples, dtype = read_header(path)
     with open(path, "rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
         offsets, skipped = event_offsets(mm, dtype)
@@ -105,7 +130,15 @@ def mean_waveform(path, max_events=None):
 
 
 def _accumulate(raw, offsets, dtype, n_samples):
-    """Media y desviacion estandar muestra a muestra de los eventos dados."""
+    """!
+    @brief Acumula muestra a muestra los eventos para calcular la media y la sigma.
+
+    @param raw Buffer en bruto del archivo.
+    @param offsets Posiciones de inicio de los eventos validos.
+    @param dtype Dtype del evento.
+    @param n_samples Numero de muestras por waveform.
+    @return Tupla (mean, std) con la waveform media y la desviacion estandar.
+    """
     # Acumular por bloques para no cargar el archivo entero en memoria
     samples_pos = dtype.fields["samples"][1] + 2 * np.arange(n_samples)
     acc = np.zeros(n_samples)
@@ -124,31 +157,121 @@ def _accumulate(raw, offsets, dtype, n_samples):
 
 
 def run_sort_key(path):
-    """Ordena run_2 antes que run_10."""
-    tail = path.stem.rsplit("_", 1)[-1]
-    return (path.stem.rsplit("_", 1)[0], int(tail) if tail.isdigit() else 0)
+    """!
+    @brief Ordena los nombres de run de forma numerica para evitar run_10 > run_2.
+
+    @param path Ruta del directorio o archivo del run.
+    @return Clave de ordenacion para sort().
+    """
+    stem = path.stem
+    parts = stem.rsplit("_", 1)
+    if len(parts) == 2 and parts[1].isdigit():
+        return (parts[0], int(parts[1]))
+    return (stem, 0)
+
+
+def iter_raw_files(path):
+    """!
+    @brief Devuelve los archivos .BIN dentro de una carpeta RAW o de un run concreto.
+
+    @param path Ruta a un archivo .BIN, a un directorio RAW o a un directorio de run.
+    @return Lista ordenada de archivos .BIN encontrados.
+    """
+    path = Path(path)
+    if path.is_file() and path.suffix.lower() == ".bin":
+        return [path]
+
+    if path.is_dir() and path.name == "RAW":
+        files = [p for p in path.iterdir() if p.is_file() and p.suffix.lower() == ".bin"]
+        return sorted(files, key=lambda p: p.name.lower())
+
+    if path.is_dir():
+        raw_dir = path / "RAW"
+        if raw_dir.is_dir():
+            return iter_raw_files(raw_dir)
+
+    return []
+
+
+def resolve_input_files(requests):
+    """!
+    @brief Resuelve nombres de run o rutas de archivo y devuelve los .BIN a procesar.
+
+    @param requests Lista de nombres de run o rutas a archivos/directorios.
+    @return Lista ordenada de archivos RAW que se van a plotear.
+    """
+    files = []
+    seen = set()
+
+    if not requests:
+        for run_dir in sorted(DAQ_DIR.iterdir(), key=lambda p: p.name.lower()):
+            if not run_dir.is_dir():
+                continue
+            for file in iter_raw_files(run_dir):
+                if file not in seen:
+                    files.append(file)
+                    seen.add(file)
+        return files
+
+    for request in requests:
+        request_path = Path(request)
+        if request_path.exists():
+            matches = iter_raw_files(request_path)
+            if not matches:
+                matches = [request_path] if request_path.is_file() else []
+        else:
+            candidates = []
+            candidates.append(DAQ_DIR / request)
+            candidates.append(DATA_DIR / request)
+            candidates.extend(sorted(DAQ_DIR.glob(f"**/{request}*.BIN"), key=lambda p: p.as_posix()))
+            candidates.extend(sorted(DAQ_DIR.glob(f"**/{request}/RAW/*.BIN"), key=lambda p: p.as_posix()))
+            matches = []
+            for cand in candidates:
+                if cand.is_file() and cand.suffix.lower() == ".bin":
+                    matches.append(cand)
+                else:
+                    matches.extend(iter_raw_files(cand))
+
+        if not matches:
+            raise SystemExit(f"No se encontraron archivos RAW para '{request}' en {DAQ_DIR}")
+
+        for file in matches:
+            if file not in seen:
+                files.append(file)
+                seen.add(file)
+
+    return sorted(files, key=lambda p: (p.parent.parent.name.lower(), p.name.lower()))
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Waveform media de los .bin de CoMPASS")
-    parser.add_argument("files", nargs="*", type=Path, help="archivos .bin (por defecto todos los de data/)")
-    parser.add_argument("--max-events", type=int, default=None, help="limitar eventos por archivo")
+    """!
+    @brief Funcion principal que genera el HTML con las waveforms medias de los runs seleccionados.
+
+    @return None
+    """
+    parser = argparse.ArgumentParser(description="Waveform media de los archivos RAW de CoMPASS")
+    parser.add_argument("runs", nargs="*", type=str, help="nombre del run o ruta al .BIN. Si se omite, usa todos los runs en DAQ/.")
+    parser.add_argument("--max-events", type=int, default=DEFAULT_MAX_EVENTS, help=f"limitar eventos por archivo (por defecto {DEFAULT_MAX_EVENTS})")
+    parser.add_argument("--all-events", action="store_true", help="usar todos los eventos del archivo (ignora --max-events)")
     parser.add_argument("--out", type=Path, default=OUT_HTML, help="HTML de salida")
     parser.add_argument("--no-open", action="store_true", help="no abrir el navegador")
     parser.add_argument("--dt-ns", type=float, default=SAMPLE_PERIOD_NS,
                         help=f"periodo de muestreo en ns, incluido el downsampling (por defecto {SAMPLE_PERIOD_NS})")
     args = parser.parse_args()
 
-    files = [f if f.exists() else DATA_DIR / f for f in args.files]
+    files = resolve_input_files(args.runs)
     if not files:
-        files = sorted((p for p in DATA_DIR.iterdir() if p.suffix.lower() == ".bin"), key=run_sort_key)
-    if not files:
-        raise SystemExit(f"No hay archivos .bin en {DATA_DIR}")
+        raise SystemExit(f"No hay archivos .bin en {DAQ_DIR}")
+
+    max_events = None if args.all_events else args.max_events
+    if max_events is not None and max_events <= 0:
+        max_events = None
 
     results = []
     for path in files:
-        mean, std, n, skipped = mean_waveform(path, args.max_events)
-        name = path.stem.split("_", 3)[-1] if "_" in path.stem else path.stem
+        mean, std, n, skipped = mean_waveform(path, max_events)
+        run_name = path.parent.parent.name if path.parent.name == "RAW" else path.parent.name
+        name = f"{run_name}:{path.stem}"
         msg = f"{path.name}: {n} eventos, {len(mean)} muestras"
         if skipped:
             msg += f" ({skipped} eventos corruptos descartados)"
