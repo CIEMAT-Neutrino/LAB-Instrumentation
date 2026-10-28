@@ -19,3 +19,6 @@ data/
 
 #documentacion
 docs/doxygen/
+
+#ejemplos
+CoMPASSdemo/
