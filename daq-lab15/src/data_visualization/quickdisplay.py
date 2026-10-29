@@ -197,20 +197,43 @@ def resolve_input_files(requests):
     """!
     @brief Resuelve nombres de run o rutas de archivo y devuelve los .BIN a procesar.
 
+    Busca en cualquier carpeta dentro de data/
+
     @param requests Lista de nombres de run o rutas a archivos/directorios.
     @return Lista ordenada de archivos RAW que se van a plotear.
     """
     files = []
     seen = set()
 
-    if not requests:
-        for run_dir in sorted(DAQ_DIR.iterdir(), key=lambda p: p.name.lower()):
-            if not run_dir.is_dir():
+    def _search_anywhere(request):
+        candidates = []
+        request_l = request.lower()
+
+        for raw_dir in sorted(DATA_DIR.rglob("RAW"), key=lambda p: str(p).lower()):
+            if not raw_dir.is_dir():
                 continue
-            for file in iter_raw_files(run_dir):
-                if file not in seen:
-                    files.append(file)
-                    seen.add(file)
+            parent_name = raw_dir.parent.name.lower()
+            if request_l in parent_name or request_l in raw_dir.parent.name.lower():
+                candidates.extend(iter_raw_files(raw_dir))
+            candidates.extend(sorted(raw_dir.glob(f"*{request}*.BIN"), key=lambda p: p.name.lower()))
+            candidates.extend(sorted(raw_dir.glob(f"*{request}*.bin"), key=lambda p: p.name.lower()))
+
+        for bin_file in sorted(DATA_DIR.rglob("*.BIN"), key=lambda p: str(p).lower()):
+            if request_l in bin_file.stem.lower():
+                candidates.append(bin_file)
+        for bin_file in sorted(DATA_DIR.rglob("*.bin"), key=lambda p: str(p).lower()):
+            if request_l in bin_file.stem.lower():
+                candidates.append(bin_file)
+
+        return sorted(set(candidates), key=lambda p: str(p).lower())
+
+    if not requests:
+        for raw_dir in sorted(DATA_DIR.rglob("RAW"), key=lambda p: str(p).lower()):
+            if raw_dir.is_dir():
+                for file in iter_raw_files(raw_dir):
+                    if file not in seen:
+                        files.append(file)
+                        seen.add(file)
         return files
 
     for request in requests:
@@ -220,27 +243,24 @@ def resolve_input_files(requests):
             if not matches:
                 matches = [request_path] if request_path.is_file() else []
         else:
-            candidates = []
-            candidates.append(DAQ_DIR / request)
-            candidates.append(DATA_DIR / request)
-            candidates.extend(sorted(DAQ_DIR.glob(f"**/{request}*.BIN"), key=lambda p: p.as_posix()))
-            candidates.extend(sorted(DAQ_DIR.glob(f"**/{request}/RAW/*.BIN"), key=lambda p: p.as_posix()))
-            matches = []
-            for cand in candidates:
-                if cand.is_file() and cand.suffix.lower() == ".bin":
-                    matches.append(cand)
-                else:
-                    matches.extend(iter_raw_files(cand))
+            matches = _search_anywhere(request)
+            if not matches:
+                candidates = []
+                candidates.append(DAQ_DIR / request)
+                candidates.append(DATA_DIR / request)
+                for cand in candidates:
+                    if cand.exists():
+                        matches.extend(iter_raw_files(cand))
 
         if not matches:
-            raise SystemExit(f"No se encontraron archivos RAW para '{request}' en {DAQ_DIR}")
+            raise SystemExit(f"No se encontraron archivos RAW para '{request}' en ninguna carpeta dentro de {DATA_DIR}")
 
         for file in matches:
             if file not in seen:
                 files.append(file)
                 seen.add(file)
 
-    return sorted(files, key=lambda p: (p.parent.parent.name.lower(), p.name.lower()))
+    return sorted(files, key=lambda p: (str(p.parent.parent).lower(), p.name.lower()))
 
 
 def main():
@@ -269,7 +289,12 @@ def main():
 
     results = []
     for path in files:
-        mean, std, n, skipped = mean_waveform(path, max_events)
+        try:
+            mean, std, n, skipped = mean_waveform(path, max_events)
+        except (ValueError, OSError, EOFError) as exc:
+            print(f"Saltando {path}: {exc}")
+            continue
+
         run_name = path.parent.parent.name if path.parent.name == "RAW" else path.parent.name
         name = f"{run_name}:{path.stem}"
         msg = f"{path.name}: {n} eventos, {len(mean)} muestras"
@@ -277,6 +302,9 @@ def main():
             msg += f" ({skipped} eventos corruptos descartados)"
         print(msg)
         results.append((name, mean, std, n))
+
+    if not results:
+        raise SystemExit(f"No se encontraron waveforms validas en ninguna carpeta de {DATA_DIR}")
 
     # Una grafica por archivo, en una cuadricula de 2 columnas
     cols = 1 if len(results) == 1 else 2

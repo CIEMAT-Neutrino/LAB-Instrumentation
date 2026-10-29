@@ -13,4 +13,4 @@ dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["daq*"]
+include = ["daq*", "web_interface*"]

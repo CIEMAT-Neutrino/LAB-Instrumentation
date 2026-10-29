@@ -44,7 +44,7 @@ daq-lab15/
 
 ## Installation
 
-Requires Python 3.9+ (adjust to the version you use).
+Requires Python 3.9+.
 
 ```bash
 git clone https://github.com/CIEMAT-Neutrino/LAB-Instrumentation.git
@@ -78,7 +78,9 @@ python scripts/check_addr.py
 Each instrument can be tested independently with the scripts in `scripts/` before launching a full run, for example:
 
 ```bash
-python scripts/check_ql564tp.py
+python scripts/check_generator.py
+python scripts/check_source.py
+python scripts/check_dt2730.py
 ```
 
 *(Script names may differ; see the `scripts/` folder.)*

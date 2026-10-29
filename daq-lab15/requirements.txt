@@ -1,3 +1,4 @@
+Flask==3.1.0
 numpy==2.5.4
 pip==26.2.2
 plotly==7.1.0

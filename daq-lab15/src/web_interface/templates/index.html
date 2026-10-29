@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DAQ LAB15</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --panel-soft: #1f2937;
+        --primary: #60a5fa;
+        --success: #34d399;
+        --warning: #fbbf24;
+        --danger: #f87171;
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --border: rgba(148, 163, 184, 0.25);
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(180deg, #020817 0%, #0f172a 100%);
+        color: var(--text);
+      }
+      .container {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 24px 20px 52px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      h1, h2, h3 { margin: 0 0 12px; }
+      .title {
+        font-size: 2rem;
+        font-weight: 700;
+      }
+      .subtitle {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+      .nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .nav a {
+        color: var(--text);
+        text-decoration: none;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.65);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 18px;
+        margin-bottom: 22px;
+      }
+      .card {
+        background: rgba(17, 24, 39, 0.92);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 18px;
+        box-shadow: 0 10px 18px rgba(2, 6, 23, 0.28);
+      }
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 14px;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 10px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        background: rgba(96, 165, 250, 0.14);
+        color: var(--primary);
+      }
+      .badge.ok { background: rgba(52, 211, 153, 0.12); color: var(--success); }
+      .badge.warn { background: rgba(251, 191, 36, 0.12); color: var(--warning); }
+      .badge.bad { background: rgba(248, 113, 113, 0.12); color: var(--danger); }
+      .status-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+      }
+      .status-row:last-child { border-bottom: none; }
+      .value-box {
+        display: flex;
+        gap: 18px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+      }
+      .metric {
+        background: rgba(31, 41, 55, 0.9);
+        border-radius: 10px;
+        padding: 10px 12px;
+        min-width: 110px;
+      }
+      .metric-label {
+        color: var(--muted);
+        font-size: 0.76rem;
+        margin-bottom: 6px;
+      }
+      .metric-value {
+        font-size: 1.2rem;
+        font-weight: 700;
+      }
+      .button-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      button {
+        border: none;
+        border-radius: 10px;
+        padding: 10px 16px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+      }
+      button:hover { transform: translateY(-1px); }
+      .btn-primary { background: var(--primary); color: #08111d; }
+      .btn-success { background: var(--success); color: #062b1d; }
+      .btn-warning { background: var(--warning); color: #2a1a00; }
+      .btn-danger { background: var(--danger); color: #1b0508; }
+      .btn-secondary { background: rgba(148, 163, 184, 0.15); color: var(--text); }
+      .danger-zone {
+        border: 1px solid rgba(248, 113, 113, 0.45);
+        background: rgba(127, 29, 29, 0.18);
+      }
+      .table-wrap {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 12px;
+      }
+      th, td {
+        padding: 10px 8px;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+      }
+      th { color: var(--muted); font-weight: 600; }
+      input, select, textarea {
+        width: 100%;
+        border: 1px solid var(--border);
+        background: rgba(15, 23, 42, 0.85);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 9px 10px;
+      }
+      .config-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
+      }
+      .progress {
+        width: 100%;
+        height: 18px;
+        background: rgba(148, 163, 184, 0.15);
+        border-radius: 999px;
+        overflow: hidden;
+        margin: 12px 0 10px;
+      }
+      .progress-bar {
+        width: 30%;
+        height: 100%;
+        background: linear-gradient(90deg, var(--primary), var(--success));
+      }
+      .log-box {
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        min-height: 130px;
+        color: var(--muted);
+        white-space: pre-wrap;
+      }
+      .usage {
+        line-height: 1.6;
+        color: var(--text);
+      }
+      .usage ol {
+        margin-left: 18px;
+      }
+      .muted { color: var(--muted); }
+      @media (max-width: 640px) {
+        .title { font-size: 1.5rem; }
+        header { display: block; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div>
+          <div class="title">DAQ LAB15</div>
+          <div class="subtitle">Interfaz de control y supervisión del banco de medidas</div>
+        </div>
+        <nav class="nav">
+          <a href="#status">Estado</a>
+          <a href="#config">Run</a>
+          <a href="#execution">Ejecución</a>
+          <a href="#visualization">Visualización</a>
+          <a href="#history">Historial</a>
+          <a href="#usage">Instrucciones</a>
+        </nav>
+      </header>
+
+      <section id="status" class="grid">
+        <article class="card">
+          <div class="card-header">
+            <h2>Estado de los instrumentos</h2>
+            <span class="badge ok">online</span>
+          </div>
+
+          {% for key, instrument in status.items() %}
+          <div class="status-row">
+            <div>
+              <strong>{{ instrument.name }}</strong><br />
+              <span class="muted">{{ instrument.description }}</span>
+            </div>
+            <div>
+              <span class="badge {% if instrument.connected %}ok{% else %}bad{% endif %}">
+                {% if instrument.connected %}conectado{% else %}desconectado{% endif %}
+              </span>
+            </div>
+          </div>
+          {% endfor %}
+
+          <div class="button-row">
+            <button class="btn-primary" type="button">Comprobar conexión</button>
+            <button class="btn-success" type="button">Conectar instrumentos</button>
+          </div>
+
+          <div class="value-box">
+            <div class="metric">
+              <div class="metric-label">Tensión</div>
+              <div class="metric-value">{{ status['source'].voltage if status['source'].voltage is not none else '--' }} V</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Corriente</div>
+              <div class="metric-value">{{ status['source'].current if status['source'].current is not none else '--' }} A</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card danger-zone">
+          <div class="card-header">
+            <h2>Parada de emergencia</h2>
+            <span class="badge bad">stop</span>
+          </div>
+          <p class="muted">Apaga la salida de la fuente y deja el sistema en un estado seguro.</p>
+          <div class="button-row">
+            <button class="btn-danger" type="button">STOP EMERGENCIA</button>
+          </div>
+        </article>
+      </section>
+
+      <section id="config" class="card" style="margin-bottom: 22px;">
+        <div class="card-header">
+          <h2>Configurar run</h2>
+          <span class="badge">perfil</span>
+        </div>
+
+        <div class="config-grid">
+          <div>
+            <label>Perfil</label>
+            <select>
+              {% for profile in run_profiles %}
+              <option>{{ profile }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>Nivel del LED</label>
+            <input type="number" value="0.8" step="0.1" />
+          </div>
+          <div>
+            <label>Tiempo de adquisición (s)</label>
+            <input type="number" value="10" step="1" />
+          </div>
+          <div>
+            <label>Fichero de configuración CoMPASS</label>
+            <input type="text" value="config_run.xml" />
+          </div>
+          <div>
+            <label>Run ID</label>
+            <input type="text" value="run_001" />
+          </div>
+        </div>
+
+        <div style="margin-top: 18px;">
+          <h3>Tensión de alimentación</h3>
+          <div class="config-grid">
+            <div><label>Inicio (V)</label><input id="v-start" type="number" value="0" step="0.1" /></div>
+            <div><label>Fin (V)</label><input id="v-end" type="number" value="12" step="0.1" /></div>
+            <div><label>Paso (V)</label><input id="v-step" type="number" value="1" step="0.1" /></div>
+          </div>
+          <div class="button-row">
+            <button class="btn-secondary" type="button" id="preview-voltage-points">Previsualizar puntos</button>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Voltaje (V)</th>
+                </tr>
+              </thead>
+              <tbody id="voltage-points-table">
+                {% for point in voltage_points %}
+                <tr><td>{{ loop.index }}</td><td>{{ point }}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="execution" class="grid">
+        <article class="card">
+          <div class="card-header">
+            <h2>Ejecución</h2>
+            <span class="badge warn">en cola</span>
+          </div>
+          <div class="button-row">
+            <button class="btn-success" type="button">Iniciar run</button>
+            <button class="btn-secondary" type="button">Parar</button>
+          </div>
+          <div class="progress"><div class="progress-bar"></div></div>
+          <div class="value-box">
+            <div class="metric">
+              <div class="metric-label">Punto</div>
+              <div class="metric-value">3 / 12</div>
+            </div>
+            <div class="metric">
+              <div class="metric-label">Tiempo restante</div>
+              <div class="metric-value">00:12:40</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <h2>Registro en directo</h2>
+            <span class="badge">log</span>
+          </div>
+          <div class="log-box">
+{% for message in logs %}
+{{ message }}
+{% endfor %}
+          </div>
+        </article>
+      </section>
+
+      <section id="visualization" class="card" style="margin-bottom: 22px;">
+        <div class="card-header">
+          <h2>Visualización</h2>
+          <span class="badge">plots</span>
+        </div>
+        <p class="muted">Espacio reservado para histogramas, curvas de ganancia, tasa de cuentas, waveform y comparación de runs.</p>
+        <div class="grid">
+          <div class="card" style="background: rgba(15, 23, 42, 0.8);">
+            <h3>Histograma de carga</h3>
+            <div class="muted">Plot a generar con los datos del run activo.</div>
+          </div>
+          <div class="card" style="background: rgba(15, 23, 42, 0.8);">
+            <h3>Ganancia vs tensión</h3>
+            <div class="muted">Curva de respuesta por nivel de alimentación.</div>
+          </div>
+          <div class="card" style="background: rgba(15, 23, 42, 0.8);">
+            <h3>Tasa de cuentas / oscuridad</h3>
+            <div class="muted">Comparativa para perfiles de oscuridad y luz.</div>
+          </div>
+          <div class="card" style="background: rgba(15, 23, 42, 0.8);">
+            <h3>Waveform</h3>
+            <div class="muted">Vista del evento concreto seleccionado.</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="history" class="card" style="margin-bottom: 22px;">
+        <div class="card-header">
+          <h2>Historial y metadatos</h2>
+          <span class="badge">runs</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Run</th>
+                <th>Fecha</th>
+                <th>Perfil</th>
+                <th>Parámetros</th>
+                <th>Condiciones</th>
+                <th>Descarga</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>run_001</td>
+                <td>2026-10-28</td>
+                <td>Calibración</td>
+                <td>0–12 V / 1 V</td>
+                <td>LED 0.8</td>
+                <td><button class="btn-secondary" type="button">CSV</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="usage" class="card">
+        <div class="card-header">
+          <h2>Instrucciones de uso</h2>
+          <span class="badge">manual</span>
+        </div>
+        <div class="usage">
+          <ol>
+            <li>Comprueba que la fuente QL564TP, el generador TGP3152 y CoMPASS están conectados.</li>
+            <li>Selecciona el perfil de medida y define el rango de tensiones de alimentación.</li>
+            <li>Previsualiza los puntos y verifica que el conjunto de condiciones es seguro.</li>
+            <li>Inicia el run; la interfaz mostrará el punto actual, el progreso y el registro en directo.</li>
+            <li>Tras la adquisición, usa la sección de visualización para analizar los resultados y descargar el resumen.</li>
+          </ol>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      function buildVoltageRows(start, end, step) {
+        const rows = [];
+        const s = Number(start);
+        const e = Number(end);
+        const st = Number(step);
+        if (!Number.isFinite(s) || !Number.isFinite(e) || !Number.isFinite(st) || st <= 0) return rows;
+        const values = [];
+        if (s <= e) {
+          for (let v = s; v <= e + 1e-9; v += st) values.push(Number(v.toFixed(6)));
+        } else {
+          for (let v = s; v >= e - 1e-9; v -= st) values.push(Number(v.toFixed(6)));
+        }
+        if (values.length === 0 || Number(values[values.length - 1].toFixed(6)) !== Number(e.toFixed(6))) {
+          values.push(Number(e.toFixed(6)));
+        }
+        for (let i = 0; i < values.length; i++) rows.push({ index: i + 1, value: values[i] });
+        return rows;
+      }
+
+      document.getElementById('preview-voltage-points')?.addEventListener('click', async () => {
+        const start = document.getElementById('v-start').value;
+        const end = document.getElementById('v-end').value;
+        const step = document.getElementById('v-step').value;
+        const rows = buildVoltageRows(start, end, step);
+        const tbody = document.getElementById('voltage-points-table');
+        tbody.innerHTML = rows.map(row => `<tr><td>${row.index}</td><td>${row.value}</td></tr>`).join('');
+
+        try {
+          const response = await fetch(`/api/voltage-points?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}&step=${encodeURIComponent(step)}`);
+          const payload = await response.json();
+          if (payload.points) {
+            tbody.innerHTML = payload.points.map((value, index) => `<tr><td>${index + 1}</td><td>${value}</td></tr>`).join('');
+          }
+        } catch (error) {
+          console.error('Voltage preview request failed', error);
+        }
+      });
+    </script>
+  </body>
+</html>
