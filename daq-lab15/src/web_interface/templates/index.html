@@ -108,9 +108,10 @@
       }
       .source-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 12px;
-        margin-top: 12px;
+        grid-template-columns: repeat(2, minmax(240px, 1fr));
+        gap: 10px;
+        margin: 10px auto 0;
+        max-width: 760px;
       }
       .card {
         background: linear-gradient(180deg, rgba(13, 36, 51, 0.96), rgba(8, 20, 30, 0.96));
@@ -123,6 +124,7 @@
         background: linear-gradient(180deg, var(--subpanel) 0%, var(--subpanel-soft) 100%);
         border: 1px solid rgba(148, 163, 184, 0.24);
         border-radius: 12px;
+        padding: 14px;
       }
       .channel-tag {
         display: inline-flex;
@@ -154,27 +156,82 @@
         gap: 8px;
       }
       .signal-detail {
-        background: rgba(125, 211, 252, 0.04);
+        background: linear-gradient(180deg, rgba(15, 27, 38, 0.9), rgba(10, 21, 31, 0.9));
         border: 1px solid rgba(125, 211, 252, 0.18);
-        border-radius: 8px;
-        padding: 7px 8px;
+        border-radius: 9px;
+        padding: 8px 9px;
+        min-height: 72px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
       }
       .signal-detail-label {
         color: var(--muted);
-        font-size: 0.64rem;
-        letter-spacing: 0.06em;
+        font-size: 0.58rem;
+        letter-spacing: 0.09em;
         text-transform: uppercase;
-        margin-bottom: 4px;
+        margin-bottom: 6px;
       }
       .signal-detail-value {
-        font-size: 0.92rem;
+        font-size: 0.9rem;
         font-weight: 700;
+        color: var(--text);
+      }
+      .source-action {
+        margin-top: 12px;
+      }
+      .source-limit-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 54px;
+        width: 54px;
+        height: 54px;
+        padding: 0;
+        border-radius: 50%;
+        border: 1px solid rgba(125, 211, 252, 0.3);
+        background: linear-gradient(180deg, #dfeaf4 0%, #b7c7d6 100%);
+        color: #0b1720;
+        font-size: 0.7rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        box-shadow: 0 4px 0 rgba(123, 146, 168, 0.8), 0 8px 12px rgba(2, 8, 20, 0.25);
+        transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.08s ease;
+        text-transform: uppercase;
+      }
+      .source-limit-button:active {
+        transform: translateY(4px);
+        box-shadow: 0 2px 0 rgba(123, 146, 168, 0.8), 0 6px 10px rgba(2, 8, 20, 0.2);
+        filter: brightness(0.98);
+      }
+      .source-row {
+        display: flex;
+        gap: 10px;
+        align-items: stretch;
+      }
+      .source-metric {
+        background: linear-gradient(180deg, var(--info-surface) 0%, var(--info-surface-strong) 100%);
+        border: 1px solid rgba(125, 211, 252, 0.24);
+        border-radius: 10px;
+        padding: 10px 12px;
+        min-width: 145px;
+        min-height: 92px;
+        flex: 1 1 0;
+      }
+      .source-metric.current {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .source-current-values {
+        flex: 1;
       }
       .card-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 14px;
+        margin-bottom: 10px;
       }
       .section-title {
         color: var(--primary);
@@ -221,7 +278,7 @@
       .status-row:last-child { border-bottom: none; }
       .value-box {
         display: flex;
-        gap: 18px;
+        gap: 12px;
         flex-wrap: wrap;
         margin-top: 6px;
       }
@@ -230,15 +287,17 @@
         border: 1px solid rgba(125, 211, 252, 0.24);
         border-radius: 10px;
         padding: 10px 12px;
-        min-width: 110px;
+        min-width: 120px;
+        min-height: 86px;
+        flex: 1 1 0;
       }
       .metric-label {
         color: var(--muted);
-        font-size: 0.76rem;
+        font-size: 0.74rem;
         margin-bottom: 6px;
       }
       .metric-value {
-        font-size: 1.2rem;
+        font-size: 1.12rem;
         font-weight: 700;
       }
       .button-row {
@@ -258,7 +317,7 @@
         padding: 10px 16px;
         font-weight: 700;
         cursor: pointer;
-        transition: transform 0.2s ease, opacity 0.2s ease;
+        transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.08s ease;
       }
       button:hover { transform: translateY(-1px); }
       .btn-primary { background: var(--primary); color: #08111d; }
@@ -331,6 +390,22 @@
         color: var(--muted);
         white-space: pre-wrap;
       }
+      .instrument-log {
+        margin-top: 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid rgba(125, 211, 252, 0.22);
+        background: rgba(15, 23, 42, 0.8);
+        color: var(--muted);
+        font-size: 0.8rem;
+        line-height: 1.6;
+        min-height: 90px;
+      }
+      .instrument-log-line {
+        display: block;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
       .usage {
         line-height: 1.6;
         color: var(--text);
@@ -375,10 +450,6 @@
               <span class="badge ok">online</span>
             </div>
 
-            <div class="button-row">
-              <button class="btn-primary" type="button">Check conexión</button>
-            </div>
-
             <div class="card" style="margin-top: 12px; background: rgba(15, 23, 42, 0.8);">
               <div class="card-header">
                 <div>
@@ -396,14 +467,17 @@
                     <div><strong>Fuente 1</strong></div>
                     <span class="channel-tag">Driver LED</span>
                   </div>
-                  <div class="value-box">
-                    <div class="metric">
+                  <div class="source-row">
+                    <div class="source-metric">
                       <div class="metric-label">Tensión</div>
                       <div class="metric-value">{{ status['source'].voltage if status['source'].voltage is not none else '--' }} V</div>
                     </div>
-                    <div class="metric">
-                      <div class="metric-label">Corriente</div>
-                      <div class="metric-value">{{ status['source'].current if status['source'].current is not none else '--' }} A</div>
+                    <div class="source-metric current">
+                      <div class="source-current-values">
+                        <div class="metric-label">Corriente</div>
+                        <div class="metric-value">{{ status['source'].current if status['source'].current is not none else '--' }} A</div>
+                      </div>
+                      <button class="source-limit-button" type="button" aria-label="Límite de corriente">Límite</button>
                     </div>
                   </div>
                 </div>
@@ -413,25 +487,29 @@
                     <div><strong>Fuente 2</strong></div>
                     <span class="channel-tag">ARAPUCA</span>
                   </div>
-                  <div class="value-box">
-                    <div class="metric">
+                  <div class="source-row">
+                    <div class="source-metric">
                       <div class="metric-label">Tensión</div>
                       <div class="metric-value">{{ status['source'].voltage if status['source'].voltage is not none else '--' }} V</div>
                     </div>
-                    <div class="metric">
-                      <div class="metric-label">Corriente</div>
-                      <div class="metric-value">{{ status['source'].current if status['source'].current is not none else '--' }} A</div>
+                    <div class="source-metric current">
+                      <div class="source-current-values">
+                        <div class="metric-label">Corriente</div>
+                        <div class="metric-value">{{ status['source'].current if status['source'].current is not none else '--' }} A</div>
+                      </div>
+                      <button class="source-limit-button" type="button" aria-label="Límite de corriente">Límite</button>
                     </div>
                   </div>
                 </div>
               </div>
 
               <div class="button-row">
-                <button class="btn-secondary" type="button">Mostrar límite de corriente</button>
+                <button id="check-source-communication" class="btn-secondary" type="button">Check comunicación</button>
               </div>
+              <div id="source-log" class="instrument-log" aria-live="polite">Sin chequeo realizado aún.</div>
             </div>
 
-            <div class="card" style="margin-top: 12px; background: rgba(15, 23, 42, 0.8);">
+            <div class="card" id="generator-status-card" style="margin-top: 12px; background: rgba(15, 23, 42, 0.8);">
               <div class="card-header">
                 <div>
                   <div class="instrument-name">TGP3152</div>
@@ -442,67 +520,64 @@
                 </span>
               </div>
               <div class="grid">
-                <div class="card subcard">
-                  <div class="card-header">
-                    <div><strong>Canal 1</strong></div>
-                    <span class="channel-tag">Trigger QDC</span>
-                  </div>
-                  <div class="signal-row">
-                    <div class="signal-details">
-                      <div class="signal-detail">
-                        <div class="signal-detail-label">Señal</div>
-                        <div class="signal-detail-value">SINE</div>
-                      </div>
-                      <div class="signal-detail">
-                        <div class="signal-detail-label">HVL</div>
-                        <div class="signal-detail-value">2.5 V</div>
-                      </div>
-                      <div class="signal-detail">
-                        <div class="signal-detail-label">Frecuencia</div>
-                        <div class="signal-detail-value">1 kHz</div>
-                      </div>
-                      <div class="signal-detail">
-                        <div class="signal-detail-label">LVL</div>
-                        <div class="signal-detail-value">0.0 V</div>
-                      </div>
-                      <div class="signal-detail" style="grid-column: 1 / -1;">
-                        <div class="signal-detail-label">Pulse width</div>
-                        <div class="signal-detail-value">50 µs</div>
+                {% set generator_channels = status['generator'].channels or [] %}
+                {% if generator_channels %}
+                  {% for channel in generator_channels %}
+                  <div class="card subcard">
+                    <div class="card-header">
+                      <div><strong>Canal {{ channel.channel }}</strong></div>
+                      <span class="channel-tag">Trigger {{ 'QDC' if channel.channel == 1 else 'LED' }}</span>
+                    </div>
+                    <div class="signal-row">
+                      <div class="signal-details">
+                        <div class="signal-detail">
+                          <div class="signal-detail-label">Señal</div>
+                          <div class="signal-detail-value">{{ channel.waveform if channel.waveform is not none else '--' }}</div>
+                        </div>
+                        <div class="signal-detail">
+                          <div class="signal-detail-label">HVL</div>
+                          <div class="signal-detail-value">{{ channel.high_level if channel.high_level is not none else '--' }} V</div>
+                        </div>
+                        <div class="signal-detail">
+                          <div class="signal-detail-label">Frecuencia</div>
+                          <div class="signal-detail-value">{{ channel.frequency if channel.frequency is not none else '--' }} Hz</div>
+                        </div>
+                        <div class="signal-detail">
+                          <div class="signal-detail-label">LVL</div>
+                          <div class="signal-detail-value">{{ channel.low_level if channel.low_level is not none else '--' }} V</div>
+                        </div>
+                        <div class="signal-detail" style="grid-column: 1 / -1;">
+                          <div class="signal-detail-label">Pulse width</div>
+                          <div class="signal-detail-value">{{ channel.pulse_width if channel.pulse_width is not none else '--' }} s</div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-                <div class="card subcard">
-                  <div class="card-header">
-                    <div><strong>Canal 2</strong></div>
-                    <span class="channel-tag">Trigger LED</span>
-                  </div>
-                  <div class="signal-row">
-                    <div class="signal-details">
-                      <div class="signal-detail">
-                        <div class="signal-detail-label">Señal</div>
-                        <div class="signal-detail-value">PULSE</div>
-                      </div>
-                      <div class="signal-detail">
-                        <div class="signal-detail-label">HVL</div>
-                        <div class="signal-detail-value">3.3 V</div>
-                      </div>
-                      <div class="signal-detail">
-                        <div class="signal-detail-label">Frecuencia</div>
-                        <div class="signal-detail-value">10 Hz</div>
-                      </div>
-                      <div class="signal-detail">
-                        <div class="signal-detail-label">LVL</div>
-                        <div class="signal-detail-value">0.0 V</div>
-                      </div>
-                      <div class="signal-detail" style="grid-column: 1 / -1;">
-                        <div class="signal-detail-label">Pulse width</div>
-                        <div class="signal-detail-value">120 µs</div>
+                  {% endfor %}
+                {% else %}
+                  {% for placeholder_channel in [1, 2] %}
+                  <div class="card subcard">
+                    <div class="card-header">
+                      <div><strong>Canal {{ placeholder_channel }}</strong></div>
+                      <span class="channel-tag">Trigger {{ 'QDC' if placeholder_channel == 1 else 'LED' }}</span>
+                    </div>
+                    <div class="signal-row">
+                      <div class="signal-details">
+                        <div class="signal-detail"><div class="signal-detail-label">Señal</div><div class="signal-detail-value">--</div></div>
+                        <div class="signal-detail"><div class="signal-detail-label">HVL</div><div class="signal-detail-value">-- V</div></div>
+                        <div class="signal-detail"><div class="signal-detail-label">Frecuencia</div><div class="signal-detail-value">-- Hz</div></div>
+                        <div class="signal-detail"><div class="signal-detail-label">LVL</div><div class="signal-detail-value">-- V</div></div>
+                        <div class="signal-detail" style="grid-column: 1 / -1;"><div class="signal-detail-label">Pulse width</div><div class="signal-detail-value">-- s</div></div>
                       </div>
                     </div>
                   </div>
-                </div>
+                  {% endfor %}
+                {% endif %}
               </div>
+              <div class="button-row" style="margin-top: 12px;">
+                <button id="check-generator-communication" class="btn-secondary" type="button">Check comunicación</button>
+              </div>
+              <div id="generator-log" class="instrument-log" aria-live="polite">Sin chequeo realizado aún.</div>
             </div>
 
             <div class="card" style="margin-top: 12px; background: rgba(15, 23, 42, 0.8);">
@@ -516,6 +591,9 @@
                 </span>
               </div>
               <div class="muted">Sin lecturas activas por ahora.</div>
+              <div class="button-row" style="margin-top: 12px;">
+                <button class="btn-secondary" type="button">Check comunicación</button>
+              </div>
             </div>
 
             <div class="emergency-wrap">
@@ -781,6 +859,113 @@
         stepPanel.classList.toggle('active', isStep);
         listPanel.classList.toggle('active', !isStep);
       }
+
+      function renderInstrumentLog(elementId, entries) {
+        const node = document.getElementById(elementId);
+        if (!node) return;
+        const lines = Array.isArray(entries) && entries.length ? entries : ['Sin log disponible'];
+        node.innerHTML = lines
+          .map((line) => `<span class="instrument-log-line">${String(line).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`)
+          .join('');
+      }
+
+      function updateSourceCard(payload) {
+        const sourceBadge = document.querySelector('#status .card .badge');
+        if (sourceBadge) {
+          sourceBadge.classList.remove('ok', 'bad');
+          sourceBadge.classList.add(payload.connected ? 'ok' : 'bad');
+          sourceBadge.textContent = payload.connected ? 'conectado' : 'desconectado';
+        }
+        const sourceValues = document.querySelectorAll('.source-metric .metric-value');
+        if (sourceValues.length >= 2) {
+          sourceValues[0].textContent = `${payload.voltage ?? '--'} V`;
+          sourceValues[1].textContent = `${payload.current ?? '--'} A`;
+        }
+        renderInstrumentLog('source-log', payload.log || [payload.message || 'Sin log disponible']);
+      }
+
+      function updateGeneratorCard(payload) {
+        const card = document.getElementById('generator-status-card');
+        if (!card) return;
+
+        const badge = card.querySelector('.badge');
+        if (badge) {
+          badge.classList.remove('ok', 'bad');
+          badge.classList.add(payload.connected ? 'ok' : 'bad');
+          badge.textContent = payload.connected ? 'conectado' : 'desconectado';
+        }
+
+        renderInstrumentLog('generator-log', payload.log || [payload.message || 'Sin log disponible']);
+
+        const channelCards = card.querySelectorAll('.subcard');
+        if (!(payload.channels && payload.channels.length)) {
+          return;
+        }
+
+        channelCards.forEach((item, index) => {
+          const channel = payload.channels[index];
+          if (!channel) return;
+
+          const labels = item.querySelectorAll('.signal-detail-value');
+          if (labels.length >= 5) {
+            labels[0].textContent = channel.waveform || 'UNKNOWN';
+            labels[1].textContent = `${channel.high_level ?? '--'} V`;
+            labels[2].textContent = `${channel.frequency ?? '--'} Hz`;
+            labels[3].textContent = `${channel.low_level ?? '--'} V`;
+            labels[4].textContent = `${channel.pulse_width ?? '--'} s`;
+          }
+        });
+      }
+
+      const sourceCheckButton = document.getElementById('check-source-communication');
+      sourceCheckButton?.addEventListener('click', async () => {
+        const originalText = sourceCheckButton.textContent;
+        sourceCheckButton.disabled = true;
+        sourceCheckButton.textContent = 'Comprobando...';
+
+        try {
+          const response = await fetch('/api/source/check', { method: 'POST' });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || 'No se pudo comprobar la fuente');
+          }
+          updateSourceCard(payload);
+          sourceCheckButton.textContent = payload.connected ? 'Comunicación OK' : 'Error';
+        } catch (error) {
+          console.error('Source check failed', error);
+          sourceCheckButton.textContent = 'Error de comunicación';
+        } finally {
+          setTimeout(() => {
+            sourceCheckButton.disabled = false;
+            sourceCheckButton.textContent = originalText;
+          }, 1800);
+        }
+      });
+
+      const generatorCheckButton = document.getElementById('check-generator-communication');
+      generatorCheckButton?.addEventListener('click', async () => {
+        const originalText = generatorCheckButton.textContent;
+        generatorCheckButton.disabled = true;
+        generatorCheckButton.textContent = 'Comprobando...';
+
+        try {
+          const response = await fetch('/api/generator/check', { method: 'POST' });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || 'No se pudo comprobar el generador');
+          }
+          updateGeneratorCard(payload);
+          generatorCheckButton.textContent = payload.connected ? 'Comunicación OK' : 'Error';
+        } catch (error) {
+          console.error('Generator check failed', error);
+          generatorCheckButton.textContent = 'Error de comunicación';
+        } finally {
+          setTimeout(() => {
+            generatorCheckButton.disabled = false;
+            generatorCheckButton.textContent = originalText;
+          }, 1800);
+        }
+      });
 
       document.getElementById('voltage-mode').addEventListener('change', updateVoltageModePanels);
 

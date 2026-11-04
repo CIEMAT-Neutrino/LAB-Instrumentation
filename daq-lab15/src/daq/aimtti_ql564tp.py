@@ -2,8 +2,12 @@
 @file   aimtti_ql564tp.py
 @brief  Control functions of the AIM-TTI QL564TP power supply
 """
+import logging
 import pyvisa # La fuente utiliza el estándar de puerto serie virtual CDC (TTY)
 import re
+
+logger = logging.getLogger("daq.ql564tp")
+
 
 def open_source(resource):
     """!
@@ -12,14 +16,20 @@ def open_source(resource):
     @param resource Instrument controller
     @return source
     """
-    rm = pyvisa.ResourceManager("@py") 
+    logger.info("SOURCE trying to open resource=%s", resource)
+    try:
+        rm = pyvisa.ResourceManager("@py") 
 
-    source = rm.open_resource(resource)
-    source.baud_rate = 19200   # manual
-    source.read_termination = "\n"
-    source.write_termination = "\n"
-    print(source.query("*IDN?"))
-    return source
+        source = rm.open_resource(resource)
+        source.baud_rate = 19200   # manual
+        source.read_termination = "\n"
+        source.write_termination = "\n"
+        idn = source.query("*IDN?")
+        logger.info("SOURCE IDN reply=%r", idn)
+        return source
+    except Exception:
+        logger.exception("SOURCE connection failed for resource=%s", resource)
+        raise
 
 def set_voltage(source, channel, volts):
     """!
@@ -46,7 +56,14 @@ def read_voltage(source, channel):
     @param channel  Channel number (1, 2...).
     @return voltage
     """
-    return _to_float(source.query(f"V{channel}O?"))
+    try:
+        reply = source.query(f"V{channel}O?")
+        value = _to_float(reply)
+        logger.info("SOURCE read_voltage channel=%s reply=%r value=%s", channel, reply, value)
+        return value
+    except Exception:
+        logger.exception("SOURCE read_voltage failed channel=%s", channel)
+        raise
 
 def read_set_voltage(source, channel):
     """!
@@ -77,7 +94,14 @@ def read_current(source, channel):
     @param channel  Channel number (1, 2...).
     @return current
     """
-    return _to_float(source.query(f"I{channel}O?"))
+    try:
+        reply = source.query(f"I{channel}O?")
+        value = _to_float(reply)
+        logger.info("SOURCE read_current channel=%s reply=%r value=%s", channel, reply, value)
+        return value
+    except Exception:
+        logger.exception("SOURCE read_current failed channel=%s", channel)
+        raise
 
 def read_current_limit(source, channel):
     """!
@@ -87,7 +111,14 @@ def read_current_limit(source, channel):
     @param channel  Channel number (1, 2...).
     @return current_limit
     """
-    return _to_float(source.query(f"I{channel}?"))
+    try:
+        reply = source.query(f"I{channel}?")
+        value = _to_float(reply)
+        logger.info("SOURCE read_current_limit channel=%s reply=%r value=%s", channel, reply, value)
+        return value
+    except Exception:
+        logger.exception("SOURCE read_current_limit failed channel=%s", channel)
+        raise
 
 def check_errors(source):
     """!

@@ -2,7 +2,14 @@
 @file   aimtti_tgp3152.py
 @brief  Control functions of the AIM-TTI TGP3152 signal generator
 """
+import logging
+import os
+import re
+
 import pyvisa #Estándar puerto serie virtual
+
+logger = logging.getLogger("daq.tgp3152")
+
 
 def open_generator(resource):
     """!
@@ -11,14 +18,152 @@ def open_generator(resource):
     @param resource Instrument controller
     @return generator
     """
-    gen = pyvisa.ResourceManager("@py") 
+    logger.info("GENERATOR: intentando abrir puerto %s", resource)
+    try:
+        gen = pyvisa.ResourceManager("@py") 
 
-    generator = gen.open_resource(resource)
-    #generator.baud_rate = 19200   # manual
-    generator.read_termination = "\n"
-    generator.write_termination = "\n"
-    print(generator.query("*IDN?"))
-    return generator
+        generator = gen.open_resource(resource)
+        #generator.baud_rate = 19200   # manual
+        generator.read_termination = "\n"
+        generator.write_termination = "\n"
+        idn = generator.query("*IDN?")
+        logger.info("GENERATOR: respuesta IDN -> %s", str(idn).strip())
+        return generator
+    except Exception:
+        logger.exception("GENERATOR: fallo de conexión con %s", resource)
+        raise
+
+
+def _coerce_query_value(raw_value):
+    """Convert a VISA response into a numeric value or a normalized string."""
+    value = str(raw_value).strip()
+    if not value:
+        return None
+    if re.search(r"[A-Za-z]", value):
+        return value.upper()
+    match = re.findall(r"[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?", value)
+    if not match:
+        return value.upper()
+    return float(match[-1])
+
+
+def read_channel_configuration(generator, channel):
+    """Read the configuration of a specific channel in a normalized format."""
+    if channel not in (1, 2):
+        raise ValueError(f"Invalid channel: {channel!r}")
+    try:
+        select_channel(generator, channel)
+        queries = {
+            "waveform": "WAVE?",
+            "frequency": "FREQ?",
+            "high_level": "HILVL?",
+            "low_level": "LOLVL?",
+            "pulse_width": "PULSWID?",
+        }
+        payload = {"channel": channel}
+        for key, command in queries.items():
+            try:
+                reply = generator.query(command)
+                payload[key] = _coerce_query_value(reply)
+                logger.info("GENERATOR: canal %s consulta %s -> %r", channel, command, reply)
+            except Exception as exc:
+                logger.error(
+                    "GENERATOR: canal %s fallo en consulta %s: %s",
+                    channel,
+                    command,
+                    exc,
+                )
+                raise RuntimeError(f"Canal {channel}: consulta {command} falló: {exc}") from exc
+        logger.info("GENERATOR: canal %s configuración final = %s", channel, payload)
+        return payload
+    except Exception:
+        logger.exception("GENERATOR: fallo al leer configuración del canal %s", channel)
+        raise
+
+
+def read_generator_configuration(generator):
+    """Read the full configuration of both channels of the TGP3152."""
+    try:
+        device_id = generator.query("*IDN?").strip()
+        payload = {
+            "device_id": device_id,
+            "channels": [
+                read_channel_configuration(generator, 1),
+                read_channel_configuration(generator, 2),
+            ],
+        }
+        logger.info("GENERATOR full configuration=%s", payload)
+        return payload
+    except Exception:
+        logger.exception("GENERATOR read_generator_configuration failed")
+        raise
+
+
+def check_generator_communication(resources=None):
+    """Try the configured resource and return the current generator configuration.
+
+    For this bench the TGP3152 is known to be connected on a single serial resource,
+    so we do not iterate over a broad list of fallback ports by default. This keeps
+    the log readable and prevents false confusion caused by trying several ports
+    that are simply not present.
+    """
+    if resources is None:
+        configured = os.environ.get("TGP3152_RESOURCE")
+        if configured:
+            resources = [part.strip() for part in configured.split(",") if part.strip()]
+        else:
+            resources = ["ASRL/dev/ttyACM0::INSTR"]
+
+    log_lines: list[str] = []
+    last_error = None
+    for resource in resources:
+        if not resource:
+            continue
+        log_lines.append(f"Abriendo generador en {resource}")
+        try:
+            generator = open_generator(resource)
+            try:
+                idn_value = generator.query("*IDN?").strip()
+                log_lines.append(f"IDN OK: {idn_value}")
+                try:
+                    config = read_generator_configuration(generator)
+                    log_lines.append(f"Generador responde: {config['device_id']}")
+                    return {
+                        "connected": True,
+                        "description": config["device_id"],
+                        "channels": config["channels"],
+                        "state": "ready",
+                        "message": "Comunicación OK",
+                        "log": log_lines,
+                    }
+                except Exception as exc:
+                    log_lines.append(f"Error al leer canales: {exc}")
+                    return {
+                        "connected": True,
+                        "description": idn_value,
+                        "channels": [],
+                        "state": "connected",
+                        "message": f"IDN OK, pero falla la lectura de canales: {exc}",
+                        "log": log_lines,
+                    }
+            finally:
+                generator.close()
+        except Exception as exc:  # pragma: no cover - hardware dependent
+            last_error = exc
+            log_lines.append(f"Error en {resource}: {exc}")
+            logger.exception("GENERATOR: fallo de comunicación en %s", resource)
+            break
+
+    failure_message = str(last_error) if last_error else "No se detectó el generador TGP3152"
+    return {
+        "connected": False,
+        "description": "Thurlby Thandar Instruments Limited TGP3152",
+        "channels": [],
+        "state": "disconnected",
+        "message": failure_message,
+        "log": log_lines or [failure_message],
+    }
+
 
 def check_errors(generator):
     """!
