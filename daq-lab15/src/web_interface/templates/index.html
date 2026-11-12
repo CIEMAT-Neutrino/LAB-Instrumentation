@@ -248,6 +248,10 @@
         line-height: 1.2;
         font-family: 'Orbitron', 'Segoe UI', sans-serif;
       }
+      label.instrument-subtitle {
+        display: block;
+        margin-bottom: 6px;
+      }
       .instrument-subtitle {
         color: var(--secondary);
         font-size: 0.8rem;
@@ -738,29 +742,47 @@
       <section id="visualization" class="tab-panel">
         <article class="card">
           <div class="card-header">
-            <h2>Visualización</h2>
-            <span class="badge">plots</span>
+            <h2 class="section-title">Visualización</h2>
+            <span class="badge" id="viz-count">-- runs</span>
           </div>
-          <p class="muted">Espacio reservado para histogramas, curvas de ganancia, tasa de cuentas, waveform y comparación de runs.</p>
-          <div class="grid">
-            <div class="card" style="background: rgba(15, 23, 42, 0.8);">
-              <h3>Histograma de carga</h3>
-              <div class="muted">Plot a generar con los datos del run activo.</div>
+          <div class="config-grid">
+            <div>
+              <label class="instrument-subtitle" for="viz-dataset">Dataset</label>
+              <select id="viz-dataset"></select>
             </div>
-            <div class="card" style="background: rgba(15, 23, 42, 0.8);">
-              <h3>Ganancia vs tensión</h3>
-              <div class="muted">Curva de respuesta por nivel de alimentación.</div>
+            <div>
+              <label class="instrument-subtitle" for="viz-run">Run</label>
+              <select id="viz-run"></select>
             </div>
-            <div class="card" style="background: rgba(15, 23, 42, 0.8);">
-              <h3>Tasa de cuentas / oscuridad</h3>
-              <div class="muted">Comparativa para perfiles de oscuridad y luz.</div>
+            <div>
+              <label class="instrument-subtitle" for="viz-file">Canal</label>
+              <select id="viz-file"></select>
             </div>
-            <div class="card" style="background: rgba(15, 23, 42, 0.8);">
-              <h3>Waveform</h3>
-              <div class="muted">Vista del evento concreto seleccionado.</div>
-            </div>
+          </div>
+          <div style="margin-top: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <button class="btn-primary" type="button" id="viz-plot">Visualizar</button>
+            <span class="muted" id="viz-status"></span>
           </div>
         </article>
+
+        <article class="card">
+          <div class="card-header">
+            <h2 class="section-title">Histograma de carga</h2>
+            <span class="badge">carga</span>
+          </div>
+          <div class="viz-plot-area" id="viz-plot-histogram" style="min-height: 300px;"></div>
+          <div class="muted viz-notes" id="viz-notes-histogram"></div>
+        </article>
+
+        <article class="card">
+          <div class="card-header">
+            <h2 class="section-title">Waveform media</h2>
+            <span class="badge">waveform</span>
+          </div>
+          <div class="viz-plot-area" id="viz-plot-waveform" style="min-height: 300px;"></div>
+          <div class="muted viz-notes" id="viz-notes-waveform"></div>
+        </article>
+
       </section>
 
       <section id="history" class="tab-panel">
@@ -1016,6 +1038,149 @@
             console.error('Voltage preview request failed', error);
           }
         }
+      });
+
+      // ---- Visualización de runs ----
+      const viz = { runs: [], loaded: false, plotlyPromise: null };
+
+      function loadPlotly() {
+        if (window.Plotly) return Promise.resolve();
+        if (!viz.plotlyPromise) {
+          viz.plotlyPromise = new Promise((resolve, reject) => {
+            const tag = document.createElement('script');
+            tag.src = '/api/plotly.js';
+            tag.onload = resolve;
+            tag.onerror = () => { viz.plotlyPromise = null; reject(new Error('No se pudo cargar plotly.js')); };
+            document.head.appendChild(tag);
+          });
+        }
+        return viz.plotlyPromise;
+      }
+
+      function fillSelect(select, options) {
+        select.innerHTML = '';
+        options.forEach(({ value, label }) => {
+          const opt = document.createElement('option');
+          opt.value = value;
+          opt.textContent = label;
+          select.appendChild(opt);
+        });
+      }
+
+      const vizEl = (id) => document.getElementById(id);
+
+      function updateVizFiles() {
+        const run = viz.runs.find((r) => r.id === vizEl('viz-run').value);
+        const files = run ? run.files : [];
+        fillSelect(vizEl('viz-file'), [{ value: '', label: 'Todos' }, ...files.map((f) => ({ value: f, label: (f.match(/CH\d+/) || [f])[0] }))]);
+      }
+
+      function updateVizRuns() {
+        const runs = viz.runs.filter((r) => r.dataset === vizEl('viz-dataset').value);
+        fillSelect(vizEl('viz-run'), runs.map((r) => ({ value: r.id, label: `${r.name} (${r.size_mb} MB)` })));
+        updateVizFiles();
+      }
+
+      function styleFigure(fig) {
+        const text = '#eaf6ff';
+        // Mismo estilo que .instrument-subtitle ("Fuente de alimentación")
+        const titleColor = getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#7dd3fc';
+        const titleSize = parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.8;
+        const titleFamily = getComputedStyle(document.body).fontFamily;
+        const grid = 'rgba(125, 211, 252, 0.15)';
+        fig.layout.template = undefined;
+        fig.layout.title = undefined;  // el título lo da la sección
+        Object.assign(fig.layout, {
+          paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(15,23,42,0.6)',
+          font: { color: text }, autosize: true,
+        });
+        Object.keys(fig.layout).filter((k) => /^[xy]axis\d*$/.test(k)).forEach((k) => {
+          Object.assign(fig.layout[k], { gridcolor: grid, zerolinecolor: grid, linecolor: grid });
+        });
+        (fig.layout.annotations || []).forEach((a) => {
+          a.text = String(a.text).toUpperCase();
+          a.font = { color: titleColor, size: titleSize, family: titleFamily, weight: 600 };
+        });
+        return fig;
+      }
+
+      async function plotKind(kind, baseParams) {
+        const notes = vizEl(`viz-notes-${kind}`);
+        const params = new URLSearchParams(baseParams);
+        params.set('kind', kind);
+        notes.textContent = '';
+        try {
+          const response = await fetch(`/api/run-plot?${params}`);
+          const payload = await response.json();
+          if (!response.ok) throw new Error(payload.error || 'Error desconocido');
+          const fig = styleFigure(payload.figure);
+          await Plotly.react(vizEl(`viz-plot-${kind}`), fig.data, fig.layout, { responsive: true });
+          notes.textContent = (payload.notes || []).join(' · ');
+        } catch (error) {
+          console.error(`Plot ${kind} failed`, error);
+          Plotly.purge(vizEl(`viz-plot-${kind}`));
+          notes.textContent = `Error: ${error.message}`;
+          return false;
+        }
+        return true;
+      }
+      async function plotRun() {
+        const status = vizEl('viz-status');
+        const button = vizEl('viz-plot');
+        const run = vizEl('viz-run').value;
+        if (!run) { status.textContent = 'Selecciona un run'; return; }
+
+        const params = { run };
+        if (vizEl('viz-file').value) params.channel = vizEl('viz-file').value;
+        button.disabled = true;
+        status.textContent = 'Calculando...';
+        try {
+          await loadPlotly();
+          const results = await Promise.all([plotKind('histogram', params), plotKind('waveform', params)]);
+          status.textContent = results.every(Boolean) ? '' : 'Alguna visualización ha fallado (ver detalle debajo)';
+        } catch (error) {
+          console.error('Plot failed', error);
+          status.textContent = `Error: ${error.message}`;
+        } finally {
+          button.disabled = false;
+        }
+      }
+
+      async function loadVizRuns() {
+        const status = vizEl('viz-status');
+        try {
+          const response = await fetch('/api/runs');
+          const payload = await response.json();
+          viz.runs = payload.runs;
+          viz.loaded = true;
+          const datasets = [...new Set(viz.runs.map((r) => r.dataset))];
+          fillSelect(vizEl('viz-dataset'), datasets.map((d) => ({ value: d, label: d })));
+          vizEl('viz-count').textContent = `${viz.runs.length} runs`;
+          updateVizRuns();
+          if (!viz.runs.length) {
+            status.textContent = 'No hay runs con archivos RAW en data/';
+            return;
+          }
+          // Por defecto: el último run con datos (RAW modificado más recientemente)
+          const latest = viz.runs.find((r) => r.id === payload.latest);
+          if (latest) {
+            vizEl('viz-dataset').value = latest.dataset;
+            updateVizRuns();
+            vizEl('viz-run').value = latest.id;
+            updateVizFiles();
+          }
+          plotRun();
+        } catch (error) {
+          console.error('Run list failed', error);
+          status.textContent = 'No se pudo cargar la lista de runs';
+        }
+      }
+
+      vizEl('viz-dataset').addEventListener('change', updateVizRuns);
+      vizEl('viz-run').addEventListener('change', updateVizFiles);
+      vizEl('viz-plot').addEventListener('click', plotRun);
+      document.querySelector('.tab-button[data-tab="visualization"]').addEventListener('click', () => {
+        if (!viz.loaded) loadVizRuns();
       });
     </script>
   </body>

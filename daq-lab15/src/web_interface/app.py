@@ -7,11 +7,13 @@ The goal is to start with a clean structure and real instrument status polling.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import os
 import sys
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -21,8 +23,13 @@ logger = logging.getLogger("daq.web")
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
+if str(ROOT / "src" / "data_visualization") not in sys.path:
+    sys.path.insert(0, str(ROOT / "src" / "data_visualization"))
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, Response, jsonify, render_template, request
+from plotly.offline import get_plotlyjs
+
+import quickdisplay
 
 from daq import aimtti_ql564tp as source_driver
 from daq import aimtti_tgp3152 as generator_driver
@@ -244,6 +251,141 @@ def _read_backend_status(probe: bool = False) -> dict[str, InstrumentStatus]:
         status["compass"].state = "ready"
 
     return status
+
+
+# ---------------------------------------------------------------------------
+# Visualización de runs (reutiliza quickdisplay)
+# ---------------------------------------------------------------------------
+
+
+
+def list_runs() -> list[dict[str, Any]]:
+    """Return every run under data/ that has .BIN files in its RAW folder."""
+    runs = []
+    for raw_dir in quickdisplay.DATA_DIR.rglob("RAW"):
+        files = [f for f in quickdisplay.iter_raw_files(raw_dir) if f.stat().st_size > 0]
+        if not files:
+            continue
+        run_dir = raw_dir.parent
+        rel = run_dir.relative_to(quickdisplay.DATA_DIR)
+        runs.append({
+            "id": rel.as_posix(),
+            "dataset": rel.parts[0],
+            "name": run_dir.name,
+            "files": [f.name for f in files],
+            "size_mb": round(sum(f.stat().st_size for f in files) / 1e6, 1),
+            "mtime": max(f.stat().st_mtime for f in files),
+        })
+    runs.sort(key=lambda r: (r["dataset"].lower(), quickdisplay.run_sort_key(Path(r["id"]))))
+    return runs
+
+
+def _resolve_run_files(run_id: str) -> list[Path]:
+    """Map a run id (path relative to data/) to its .BIN files, rejecting paths outside data/."""
+    run_dir = (quickdisplay.DATA_DIR / run_id).resolve()
+    if not run_dir.is_relative_to(quickdisplay.DATA_DIR.resolve()) or not run_dir.is_dir():
+        return []
+    return quickdisplay.iter_raw_files(run_dir)
+
+
+@lru_cache(maxsize=64)
+def _cached_spe_waveform(path: str, mtime: float):
+    return quickdisplay.spe_mean_waveform(Path(path), quickdisplay.SPE_EVENTS)
+
+
+@lru_cache(maxsize=64)
+def _cached_energies(path: str, mtime: float):
+    return quickdisplay.read_energies(Path(path))
+
+
+def _item_group(path: Path) -> tuple[str, int]:
+    """Return a separate subplot title and colour index for each channel file."""
+    ch = quickdisplay.channel_number(path)
+    if ch is None:
+        return path.stem, 0
+    return f"Arapuca {quickdisplay.arapuca_name(ch)} · CH{ch}", ch % quickdisplay.CHANNELS_PER_ARAPUCA
+
+
+@app.get("/api/runs")
+def api_runs():
+    runs = list_runs()
+    latest = max(runs, key=lambda r: r["mtime"])["id"] if runs else None
+    return jsonify({"runs": runs, "latest": latest})
+
+
+@app.get("/api/plotly.js")
+def api_plotly_js():
+    """Serve the bundled plotly.js so the page works without internet access."""
+    return Response(get_plotlyjs(), mimetype="application/javascript",
+                    headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.get("/api/run-plot")
+def api_run_plot():
+    run_id = request.args.get("run", "")
+    kind = request.args.get("kind", "waveform")
+    if kind not in {"waveform", "histogram"}:
+        return jsonify({"error": "kind must be 'waveform' or 'histogram'"}), 400
+
+    files = _resolve_run_files(run_id)
+    if not files:
+        return jsonify({"error": f"Run no encontrado o sin archivos RAW: {run_id}"}), 404
+
+    channel = request.args.get("channel")
+    if channel:
+        files = [f for f in files if f.name == channel]
+        if not files:
+            return jsonify({"error": f"Archivo no encontrado en el run: {channel}"}), 404
+
+    try:
+        if kind == "waveform":
+            dt_ns = request.args.get("dt_ns", default=quickdisplay.SAMPLE_PERIOD_NS, type=float)
+            items, notes = [], []
+            for path in files:
+                try:
+                    mean, std, n, skipped, window = _cached_spe_waveform(str(path), path.stat().st_mtime)
+                except (ValueError, OSError, EOFError) as exc:
+                    notes.append(str(exc))
+                    continue
+                if skipped:
+                    notes.append(f"{path.name}: {skipped} eventos corruptos descartados")
+                label = quickdisplay.channel_label(path)
+                if window is None:
+                    notes.append(f"{label}: no se distingue el pico SPE, se promedian los primeros {n} eventos")
+                elif n < quickdisplay.SPE_EVENTS:
+                    notes.append(f"{label}: solo {n} eventos en el rango SPE")
+                rng = (window["lo"], window["hi"]) if window else None
+                group, color_idx = _item_group(path)
+                items.append({"group": group, "color_idx": color_idx, "mean": mean, "std": std,
+                              "name": quickdisplay.waveform_legend(label, n, rng)})
+            if not items:
+                return jsonify({"error": "Sin waveforms SPE válidas: " + " · ".join(notes), "notes": notes}), 422
+            fig = quickdisplay.waveform_figure(items, dt_ns)
+        else:
+            items, notes = [], []
+            for path in files:
+                try:
+                    energies, skipped = _cached_energies(str(path), path.stat().st_mtime)
+                except (ValueError, OSError, EOFError) as exc:
+                    notes.append(f"{path.name}: {exc}")
+                    continue
+                if skipped:
+                    notes.append(f"{path.name}: {skipped} eventos corruptos descartados")
+                n_bins = quickdisplay.read_spectrum_nbins(path)
+                if n_bins is None:
+                    n_bins = quickdisplay.DEFAULT_NBINS
+                    notes.append(f"{path.name}: sin {quickdisplay.KEY_NBINS} en settings.xml, usando {n_bins} bins")
+                group, color_idx = _item_group(path)
+                items.append({"group": group, "color_idx": color_idx, "energies": energies, "n_bins": n_bins,
+                              "name": f"{quickdisplay.channel_label(path)} · {n_bins} bins"})
+            if not items:
+                return jsonify({"error": "Sin datos de carga válidos", "notes": notes}), 422
+            fig = quickdisplay.histogram_figure(items)
+    except Exception as exc:  # pragma: no cover - corrupt data
+        logger.exception("Error generando la visualización de %s", run_id)
+        return jsonify({"error": f"Error leyendo el run: {exc}"}), 500
+
+    return jsonify({"figure": json.loads(fig.to_json()), "notes": notes})
 
 
 @app.get("/")
